@@ -12,52 +12,15 @@ public:
 		parse(fileName);
 	}
 
-	template<typename T>
+
+
+	template<typename T = std::string>
 	T get_value(const std::string& key)
 	{
-		auto it{ map.find(key) };
-
-		if (it == map.end())
-		{
-			auto dot{ key.find('.') };
-			std::string section{ key.substr(0, dot) };
-			std::string varName{ key.substr(dot + 1) };
-			std::ostringstream list{};
-
-			list << "variable \"" + varName + "\" not found in section [" + section + "]\n";
-			list << "list of available variables:\n";
-
-			for (auto [key, value] : map)
-			{
-				if (key.starts_with(section + '.'))
-				{
-					list << key.substr(section.size() + 1) << '\n';
-				}
-			}
-
-			throw std::runtime_error(list.str());
-		}
-
-		if constexpr (std::is_same_v<T, std::string>)
-		{
-			return it->second;
-		}
-		else
-		{
-			std::istringstream strStream(it->second);
-
-			T value{};
-
-			strStream >> value;
-
-			if (strStream.fail())
-			{
-				throw std::runtime_error("Error: variable \"" + key + "\" cannot be converted to requested type");
-			}
-
-			return value;
-		}
+		static_assert(sizeof(T) == -1, "Error: unsupported type");
 	}
+
+
 
 private:
 	void parse(const std::string& fileName)
@@ -121,6 +84,8 @@ private:
 		file.close();
 	}
 
+
+
 	std::string trim(const std::string& str)
 	{
 		size_t start = str.find_first_not_of(" \t\n\r");
@@ -128,9 +93,70 @@ private:
 		return (start == std::string::npos) ? "" : str.substr(start, end - start + 1);
 	}
 
+
+
+	auto getHelper(const std::string& key)
+	{
+		auto it{ map.find(key) };
+
+		if (it == map.end())
+		{
+			auto dot{ key.find('.') };
+			std::string section{ key.substr(0, dot) };
+			std::string varName{ key.substr(dot + 1) };
+			std::ostringstream list{};
+
+			list << "variable \"" + varName + "\" not found in section [" + section + "]\n";
+			list << "list of available variables:\n";
+
+			for (auto [key, value] : map)
+			{
+				if (key.starts_with(section + '.'))
+				{
+					list << key.substr(section.size() + 1) << '\n';
+				}
+			}
+
+			throw std::runtime_error(list.str());
+		}
+
+		return it;
+	}
+
+
+
 private:
 	std::unordered_map<std::string, std::string> map;
 };
+
+
+
+template<>
+std::string ini_parser::get_value(const std::string& key)
+{
+	return getHelper(key)->second;
+}
+
+
+
+template<>
+int ini_parser::get_value(const std::string& key)
+{
+	std::istringstream strStream(getHelper(key)->second);
+
+	int value{};
+
+	strStream >> value;
+
+	if (strStream.fail())
+	{
+		throw std::runtime_error("Error: variable \"" + key + "\" cannot be converted to requested type");
+	}
+
+	return value;
+}
+
+
 
 int main()
 {
@@ -138,7 +164,7 @@ int main()
 	{
 		ini_parser file("file - Copy.ini");
 
-		
+
 	}
 	catch (const std::exception& ex)
 	{
